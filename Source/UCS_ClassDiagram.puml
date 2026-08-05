@@ -1,0 +1,269 @@
+@startuml UltraControlSystem
+
+skinparam classAttributeIconSize 0
+skinparam classFontSize 13
+skinparam ArrowColor #555555
+skinparam ClassBorderColor #444444
+skinparam ClassBackgroundColor #FAFAFA
+skinparam NoteBackgroundColor #FFFDE7
+skinparam packageBackgroundColor #F0F4FF
+skinparam packageBorderColor #8888CC
+
+' ─────────────────────────────────────────
+'  Support / Data
+' ─────────────────────────────────────────
+package "Support" {
+
+    struct FUCS_LogicStruct {
+        + InfoMap : TMap<FString, FString>
+    }
+
+    struct FGlobalSettings {
+        + GlobalMovementSpeed : float
+        + GlobalRotationSpeed : float
+        + GlobalZoomSpeed : float
+    }
+
+    class UUCS_GlobalSettings {
+        + GlobalSettings : FGlobalSettings
+        + Json : FJsonObjectWrapper
+        + UUCS_GlobalSettings()
+    }
+
+    enum ECameraType {
+        Flash
+        Lerp
+    }
+
+    UUCS_GlobalSettings *-- FGlobalSettings
+}
+
+' ─────────────────────────────────────────
+'  Interface
+' ─────────────────────────────────────────
+package "Interface" {
+
+    interface IUCS_Interface {
+        + MoveInterface(MoveInput : FVector2D) : bool
+        + RotationInterface(MoveInput : FVector2D) : bool
+        + ZoomInterface(ZoomInput : float) : bool
+        + FocusPoiInterface(UCS_Actor : AActor*) : bool
+        + LogicInterface(LogicInput : FUCS_LogicStruct) : bool
+    }
+}
+
+' ─────────────────────────────────────────
+'  Core Runtime
+' ─────────────────────────────────────────
+package "UltraControlSystem (Runtime)" {
+
+    class AUCS_GameModeBase {
+        + AUCS_GameModeBase()
+    }
+
+    class UUCS_GameInstanceSubsystem {
+        + UCS_GameInstanceSettings : UUCS_GlobalSettings*
+        + UCS_Pawn : AUCS_PawnBase*
+        + Cameras : TArray<AUCS_Camera*>
+        + Initialize(Collection : FSubsystemCollectionBase&)
+        + Deinitialize()
+        + CallMessanger(LogicInput : FUCS_LogicStruct) : bool
+        + FocusCamera(LogicInput : FUCS_LogicStruct) : bool
+        + CallInterfaceMessanger(LogicInput : FUCS_LogicStruct) : bool
+    }
+
+    class AUCS_PlayerController {
+        + AUCS_PlayerController()
+        + BeginPlay()
+        + SetupInputComponent()
+        + PlayBlackScreenTimeline()
+        # DefaultMappingContext : UInputMappingContext*
+        # MoveAction : UInputAction*
+        # RotationAction : UInputAction*
+        # ZoomAction : UInputAction*
+        # BlackScreenWidget : TSharedPtr<SBlackScreen>
+        - OnMove(Value : FInputActionValue&)
+        - OnRotation(Value : FInputActionValue&)
+        - OnZoom(Value : FInputActionValue&)
+    }
+
+    class AUCS_PawnBase {
+        + NewArmLength : float
+        + LerpTick(DeltaTime : float)
+        + Tick(DeltaTime : float)
+        # SceneRoot : USceneComponent*
+        # SpringArm : USpringArmComponent*
+        # Camera : UCameraComponent*
+        # GameInstance : UUCS_GameInstanceSubsystem*
+        # GlobalSettings : UUCS_GlobalSettings*
+        # TargetCameraLocation : FVector
+        # TargetCameraRotation : FRotator
+        # PC : APlayerController*
+        # bLockRotation : bool
+        # bLockMove : bool
+        # bCanMove : bool
+        # bCanRotation : bool
+        # bCanZoom : bool
+        # ClampPitch : FVector2D
+        # ClampYaw : FVector2D
+        # CameraType : ECameraType
+        # BeginPlay()
+        + MoveInterface_Implementation(MoveInput : FVector2D) : bool
+        + RotationInterface_Implementation(MoveInput : FVector2D) : bool
+        + ZoomInterface_Implementation(ZoomInput : float) : bool
+        + FocusPoiInterface_Implementation(UCS_Actor : AActor*) : bool
+    }
+
+    ' ── Actor 子包 ──
+    package "Actor" {
+
+        class AUCS_ActorBase {
+            + AUCS_ActorBase()
+            + Tick(DeltaTime : float)
+            # BeginPlay()
+            + GameInstance : UUCS_GameInstanceSubsystem*
+        }
+
+        class AUCS_Camera {
+            + SceneRoot : USceneComponent*
+            + SpringArm : USpringArmComponent*
+            + Camera : UCameraComponent*
+            + bCanMove : bool
+            + bCanRotation : bool
+            + bCanZoom : bool
+            + TargetLocation : FVector
+            + bEnableClamp : bool
+            + ClampPitch : FVector2D
+            + ClampYaw : FVector2D
+            + CameraType : ECameraType
+            + Info : FUCS_LogicStruct
+            + SetCameraActive()
+            + OnTargetLocationChanged()
+            + Tick(DeltaTime : float)
+            # BeginPlay()
+        }
+
+        class AUCS_Widget {
+            + Widget : UWidgetComponent*
+            + WidgetClass : TSubclassOf<UUCS_WidgetBase>
+            + Info : FUCS_LogicStruct
+            + Tick(DeltaTime : float)
+            # BeginPlay()
+            + SetScreenSpaceWidgetScaleAndPivot(...)
+        }
+    }
+
+    ' ── Slate / UMG ──
+    package "Slate" {
+
+        class SBlackScreen {
+            + Construct(InArgs : FArguments&)
+            + Tick(...)
+            + StartFadeAnimation()
+            - FadeSequence : FCurveSequence
+            - FadeCurve : FCurveHandle
+            - CurrentColor : FLinearColor
+        }
+
+        class UUCS_WidgetBase {
+            + Info : FUCS_LogicStruct
+            + bCanChili : bool
+            + InitWidget()
+            # Initialize() : bool
+        }
+    }
+
+    ' ── Function Library ──
+    class UUCS_FunctionLibrary {
+        + {static} Get_UCS_GameInstanceSubsystem(WorldContextObject) : UUCS_GameInstanceSubsystem*
+        + {static} Get_UCS_GlobalSettings(WorldContextObject) : UUCS_GlobalSettings*
+        + {static} ReadGlobalSettingsJson() : FJsonObjectWrapper
+    }
+}
+
+' ─────────────────────────────────────────
+'  Editor Module
+' ─────────────────────────────────────────
+package "UltraControlSystemEditor" {
+
+    class FUCS_CameraDetails {
+        + {static} MakeInstance() : TSharedRef<IDetailCustomization>
+        + CustomizeDetails(DetailBuilder : IDetailLayoutBuilder&)
+    }
+}
+
+' ─────────────────────────────────────────
+'  Unreal Engine Base Classes (stubs)
+' ─────────────────────────────────────────
+package "Unreal Engine" #EEF6EE {
+    class AGameModeBase      << (U,orchid) UE >>
+    class UGameInstanceSubsystem << (U,orchid) UE >>
+    class APlayerController  << (U,orchid) UE >>
+    class APawn              << (U,orchid) UE >>
+    class AActor             << (U,orchid) UE >>
+    class UBlueprintFunctionLibrary << (U,orchid) UE >>
+    class UUserWidget        << (U,orchid) UE >>
+    class SCompoundWidget    << (U,orchid) Slate >>
+    class IDetailCustomization << (U,orchid) UE >>
+}
+
+' ─────────────────────────────────────────
+'  Inheritance
+' ─────────────────────────────────────────
+AGameModeBase          <|-- AUCS_GameModeBase
+UGameInstanceSubsystem <|-- UUCS_GameInstanceSubsystem
+APlayerController      <|-- AUCS_PlayerController
+APawn                  <|-- AUCS_PawnBase
+AActor                 <|-- AUCS_ActorBase
+AUCS_ActorBase         <|-- AUCS_Camera
+AUCS_ActorBase         <|-- AUCS_Widget
+UBlueprintFunctionLibrary <|-- UUCS_FunctionLibrary
+UUserWidget            <|-- UUCS_WidgetBase
+SCompoundWidget        <|-- SBlackScreen
+IDetailCustomization   <|-- FUCS_CameraDetails
+
+' ─────────────────────────────────────────
+'  Interface Implementation
+' ─────────────────────────────────────────
+IUCS_Interface <|.. UUCS_GameInstanceSubsystem
+IUCS_Interface <|.. AUCS_PlayerController
+IUCS_Interface <|.. AUCS_PawnBase
+IUCS_Interface <|.. AUCS_ActorBase
+IUCS_Interface <|.. UUCS_WidgetBase
+
+' ─────────────────────────────────────────
+'  Associations / Dependencies
+' ─────────────────────────────────────────
+UUCS_GameInstanceSubsystem "1" o-- "0..1" AUCS_PawnBase        : UCS_Pawn
+UUCS_GameInstanceSubsystem "1" o-- "0..*" AUCS_Camera          : Cameras
+UUCS_GameInstanceSubsystem "1" *-- "1"    UUCS_GlobalSettings  : settings
+
+AUCS_PawnBase      --> UUCS_GameInstanceSubsystem : uses
+AUCS_PawnBase      --> UUCS_GlobalSettings        : reads
+AUCS_PawnBase      --> ECameraType                : uses
+
+AUCS_ActorBase     --> UUCS_GameInstanceSubsystem : GameInstance
+AUCS_Camera        --> ECameraType                : CameraType
+AUCS_Camera        *-- FUCS_LogicStruct           : Info
+AUCS_Widget        --> UUCS_WidgetBase            : WidgetClass
+AUCS_Widget        *-- FUCS_LogicStruct           : Info
+
+AUCS_PlayerController --> SBlackScreen            : BlackScreenWidget
+
+UUCS_WidgetBase    *-- FUCS_LogicStruct           : Info
+
+FUCS_CameraDetails ..> AUCS_Camera               : customizes
+
+note bottom of UUCS_GameInstanceSubsystem
+  中枢子系统：持有活动 Pawn 和所有
+  注册摄像机，通过 CallMessanger
+  路由 LogicStruct 消息
+end note
+
+note right of IUCS_Interface
+  统一控制接口：
+  Move / Rotation / Zoom /
+  FocusPoi / Logic
+end note
+
+@enduml
