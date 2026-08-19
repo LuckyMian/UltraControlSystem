@@ -25,9 +25,19 @@
 			"LoadingPhase": "Default"
 		},
 		{
+			"Name": "UltraControlSubSystem",
+			"Type": "Runtime",
+			"LoadingPhase": "PreLoadingScreen"
+		},
+		{
 			"Name": "UltraControlSystemEditor",
 			"Type": "Editor",
 			"LoadingPhase": "PostEngineInit"
+		},
+		{
+			"Name": "UltraControlSubSystemEditor",
+			"Type": "Editor",
+			"LoadingPhase": "Default"
 		}
 	],
 	"Plugins": [
