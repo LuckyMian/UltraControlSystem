@@ -5,12 +5,12 @@
 #include "CoreMinimal.h"
 #include "UCS_Interface.h"
 #include "Subsystems/GameInstanceSubsystem.h"
+#include "../Support/UCS_LogicStruct.h"
 #include "../Support/UCS_Settings.h"
 //#include "UltraControlSystem/Slate/UCS_MenuBase.h"
 //#include "UltraControlSystem/Actor/UCS_Widget.h"
 #include "UCS_GameInstanceSubsystem.generated.h"
 
-struct FUCS_LogicStruct;
 class AUCS_PawnBase;
 class AUCS_Camera;
 class AUCS_Widget;
@@ -38,6 +38,9 @@ public:
 	
 	UPROPERTY(BlueprintReadOnly,Category="UCS")
 	TArray<AUCS_Widget*> Widgets;
+
+	UPROPERTY(BlueprintReadOnly, Category="UCS")
+	FUCS_LogicStruct LogicSave;
 	
 	
 	

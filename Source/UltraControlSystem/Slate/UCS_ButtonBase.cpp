@@ -12,6 +12,7 @@
 UUCS_ButtonBase::UUCS_ButtonBase(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	Logic.LogicMap.Add(TEXT("Retrigger"), TEXT("0"));
 }
 
 void UUCS_ButtonBase::OnWidgetRebuilt()

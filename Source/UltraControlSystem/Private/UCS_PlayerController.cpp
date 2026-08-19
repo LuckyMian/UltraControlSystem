@@ -4,10 +4,17 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
+#include "Misc/ConfigCacheIni.h"
 
 //slate
 #include "UCS_FunctionLibrary.h"
 #include "../Slate/SBlackScreen.h"
+
+namespace
+{
+	const TCHAR* UCSPlayerControllerConfigSection = TEXT("/Script/UltraControlSystemEditor.UCS_Config");
+	const TCHAR* UCSPlayerControllerCreateWidgetKey = TEXT("bIsCreateWidget");
+}
 
 AUCS_PlayerController::AUCS_PlayerController()
 {
@@ -58,6 +65,17 @@ void AUCS_PlayerController::BeginPlay()
 	
 	if (GEngine && GEngine->GameViewport)
 	{
+		bool bIsCreateWidget = true;
+		if (GConfig)
+		{
+			GConfig->GetBool(UCSPlayerControllerConfigSection, UCSPlayerControllerCreateWidgetKey, bIsCreateWidget, GGameIni);
+		}
+
+		if (!bIsCreateWidget)
+		{
+			return;
+		}
+
 		if (!UCSWidget)
 		{
 			UCSWidget = UUCS_FunctionLibrary::Load_UCS_UMG_ByConfig(this);

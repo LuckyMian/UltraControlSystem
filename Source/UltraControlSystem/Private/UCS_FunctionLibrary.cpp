@@ -18,6 +18,7 @@ namespace
 {
 	const TCHAR* UCSConfigSection = TEXT("/Script/UltraControlSystemEditor.UCS_Config");
 	const TCHAR* UCSWidgetPathKey = TEXT("WidgetPath");
+	const TCHAR* UCSDebugPrintKey = TEXT("bIsDebugPrint");
 
 	FString ExtractObjectPathFromExportText(const FString& Path)
 	{
@@ -157,6 +158,12 @@ UUCS_MenuBase* UUCS_FunctionLibrary::Load_UCS_UMG_ByConfig(const UObject* WorldC
 
 void UUCS_FunctionLibrary::PrintUCSLog(FUCS_LogicStruct LogicInput, UObject* Object, FString Type)
 {
+	bool bIsDebugPrint = false;
+	if (!GConfig || !GConfig->GetBool(UCSConfigSection, UCSDebugPrintKey, bIsDebugPrint, GGameIni) || !bIsDebugPrint)
+	{
+		return;
+	}
+
 	const FString ObjectDisplayName = IsValid(Object)
 		? UKismetSystemLibrary::GetDisplayName(Object)
 		: TEXT("None");
@@ -173,4 +180,54 @@ void UUCS_FunctionLibrary::PrintUCSLog(FUCS_LogicStruct LogicInput, UObject* Obj
 	UE_LOG(UCS_Logs, Log, TEXT("UObject: %s"), *ObjectDisplayName);
 	UE_LOG(UCS_Logs, Log, TEXT("Type: %s"), *Type);
 	UE_LOG(UCS_Logs, Log, TEXT("LogicInput: %s"), *LogicInputText);
+}
+
+bool UUCS_FunctionLibrary::ParseCommaSeparatedString(const FString& InputString, TArray<FString>& OutStringArray)
+{
+	OutStringArray.Reset();
+
+	FString TrimmedInput = InputString;
+	TrimmedInput.TrimStartAndEndInline();
+	if (TrimmedInput.IsEmpty())
+	{
+		return false;
+	}
+
+	TrimmedInput.ParseIntoArray(OutStringArray, TEXT(","), true);
+	for (FString& Item : OutStringArray)
+	{
+		Item.TrimStartAndEndInline();
+	}
+
+	OutStringArray.RemoveAll([](const FString& Item)
+	{
+		return Item.IsEmpty();
+	});
+
+	if (OutStringArray.Num() < 2)
+	{
+		OutStringArray.Reset();
+		return false;
+	}
+
+	return true;
+}
+
+bool UUCS_FunctionLibrary::MatchesCommaSeparatedString(const FString& Value, const FString& CommaSeparatedString)
+{
+	TArray<FString> ParsedStrings;
+	if (!ParseCommaSeparatedString(CommaSeparatedString, ParsedStrings))
+	{
+		return Value == CommaSeparatedString;
+	}
+
+	for (const FString& ParsedString : ParsedStrings)
+	{
+		if (Value == ParsedString)
+		{
+			return true;
+		}
+	}
+
+	return false;
 }

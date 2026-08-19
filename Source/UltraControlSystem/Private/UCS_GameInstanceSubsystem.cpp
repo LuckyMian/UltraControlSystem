@@ -3,6 +3,7 @@
 
 #include "UCS_GameInstanceSubsystem.h"
 
+#include "UCS_FunctionLibrary.h"
 #include "UCS_PawnBase.h"
 #include "UCS_PlayerController.h"
 #include "../Actor/UCS_Camera.h"
@@ -24,6 +25,21 @@ void UUCS_GameInstanceSubsystem::Deinitialize()
 
 bool UUCS_GameInstanceSubsystem::CallMessanger(FUCS_LogicStruct LogicInput)
 {
+	const FString* RetriggerValue = LogicInput.LogicMap.Find(TEXT("Retrigger"));
+	const bool bPreventRetrigger = RetriggerValue == nullptr || *RetriggerValue == TEXT("0");
+	if (bPreventRetrigger)
+	{
+		const FString* SavedKey = LogicSave.LogicMap.Find(TEXT("Key"));
+		const FString* InputKey = LogicInput.LogicMap.Find(TEXT("Key"));
+		if (SavedKey != nullptr && InputKey != nullptr
+			&& !SavedKey->IsEmpty() && !InputKey->IsEmpty()
+			&& UUCS_FunctionLibrary::MatchesCommaSeparatedString(*SavedKey, *InputKey))
+		{
+			return false;
+		}
+	}
+
+	LogicSave = LogicInput;
 	FocusCamera(LogicInput);
 	CallInterfaceMessanger(LogicInput);
 	ShowWidgetByMessanger(LogicInput);

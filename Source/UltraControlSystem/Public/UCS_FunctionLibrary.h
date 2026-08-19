@@ -34,6 +34,12 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Ultra Control System|Logs")
 	static void PrintUCSLog(FUCS_LogicStruct LogicInput, UObject* Object, FString Type);
+
+	UFUNCTION(BlueprintPure, Category = "Ultra Control System|String", meta = (DisplayName = "Parse Comma Separated String"))
+	static bool ParseCommaSeparatedString(const FString& InputString, TArray<FString>& OutStringArray);
+
+	UFUNCTION(BlueprintPure, Category = "Ultra Control System|String", meta = (DisplayName = "Matches Comma Separated String"))
+	static bool MatchesCommaSeparatedString(const FString& Value, const FString& CommaSeparatedString);
 };
 
 
