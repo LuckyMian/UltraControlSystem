@@ -48,6 +48,10 @@
 		{
 			"Name": "EnhancedInput",
 			"Enabled": true
+		},
+		{
+			"Name": "UEWebSocketController",
+			"Enabled": true
 		}
 	]
 }

@@ -2,6 +2,7 @@
 
 
 #include "UCS_FunctionLibrary.h"
+#include "UCS_ProjectSettings.h"
 
 #include "Engine/Blueprint.h"
 #include "Engine/Engine.h"
@@ -16,10 +17,6 @@ DEFINE_LOG_CATEGORY_STATIC(UCS_Logs, Log, All);
 
 namespace
 {
-	const TCHAR* UCSConfigSection = TEXT("/Script/UltraControlSystemEditor.UCS_Config");
-	const TCHAR* UCSWidgetPathKey = TEXT("WidgetPath");
-	const TCHAR* UCSDebugPrintKey = TEXT("bIsDebugPrint");
-
 	FString ExtractObjectPathFromExportText(const FString& Path)
 	{
 		FString Result = Path;
@@ -125,17 +122,11 @@ FJsonObjectWrapper UUCS_FunctionLibrary::ReadGlobalSettingsJson()
 
 UUCS_MenuBase* UUCS_FunctionLibrary::Load_UCS_UMG_ByConfig(const UObject* WorldContextObject)
 {
-	FString WidgetPath;
-	if (!GConfig || !GConfig->GetString(UCSConfigSection, UCSWidgetPathKey, WidgetPath, GGameIni))
-	{
-		UE_LOG(LogTemp, Error, TEXT("菜单路径配置不正确: [%s]."), UCSConfigSection);
-		return nullptr;
-	}
-
+	FString WidgetPath = UUCS_ProjectSettings::GetConfiguredMenuWidgetPath();
 	WidgetPath.TrimStartAndEndInline();
 	if (WidgetPath.IsEmpty())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("菜单路径配置为空 [%s]."), UCSConfigSection);
+		UE_LOG(LogTemp, Warning, TEXT("UCS menu widget path is empty."));
 		return nullptr;
 	}
 
@@ -158,8 +149,7 @@ UUCS_MenuBase* UUCS_FunctionLibrary::Load_UCS_UMG_ByConfig(const UObject* WorldC
 
 void UUCS_FunctionLibrary::PrintUCSLog(FUCS_LogicStruct LogicInput, UObject* Object, FString Type)
 {
-	bool bIsDebugPrint = false;
-	if (!GConfig || !GConfig->GetBool(UCSConfigSection, UCSDebugPrintKey, bIsDebugPrint, GGameIni) || !bIsDebugPrint)
+	if (!UUCS_ProjectSettings::IsDebugPrintEnabled())
 	{
 		return;
 	}

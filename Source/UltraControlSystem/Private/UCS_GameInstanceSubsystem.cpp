@@ -8,6 +8,7 @@
 #include "UCS_PlayerController.h"
 #include "../Actor/UCS_Camera.h"
 #include "Kismet/GameplayStatics.h"
+#include "JsonObjectConverter.h"
 #include "UltraControlSystem/Actor/UCS_Widget.h"
 #include "UltraControlSystem/Support/UCS_LogicStruct.h"
 
@@ -48,25 +49,32 @@ bool UUCS_GameInstanceSubsystem::CallMessanger(FUCS_LogicStruct LogicInput)
 
 bool UUCS_GameInstanceSubsystem::FocusCamera(FUCS_LogicStruct LogicInput)
 {
-	
 	const FString* KeyPtr = LogicInput.LogicMap.Find(TEXT("Key"));
-	if (!KeyPtr) 
+	if (KeyPtr == nullptr || KeyPtr->IsEmpty())
 	{
-		return false; 
+		return false;
 	}
+
+	// Some maps use the engine's default GameMode and therefore do not spawn an
+	// AUCS_PawnBase. Resolve it lazily when possible and never dereference null.
+	if (!IsValid(UCS_Pawn))
+	{
+		UCS_Pawn = Cast<AUCS_PawnBase>(UGameplayStatics::GetPlayerPawn(this, 0));
+	}
+	if (!IsValid(UCS_Pawn))
+	{
+		return false;
+	}
+
 	FName TargetTag = FName(**KeyPtr);
 	// 2. 遍历相机
 	for (AUCS_Camera* Camera : this->Cameras)
 	{
-		if (Camera)
+		if (IsValid(Camera))
 		{
 			if (Camera->ActorHasTag(TargetTag))
 			{
-				// 3. 注意：直接调用 _Implementation 只能触发 C++ 的实现。
-				// 如果该接口可以在蓝图中被重写，建议使用全局静态方法：
-				// IFocusPoiInterface::Execute_FocusPoiInterface(UCS_Pawn, Camera);
-             
-				UCS_Pawn->FocusPoiInterface_Implementation(Camera);
+				IUCS_Interface::Execute_FocusPoiInterface(UCS_Pawn, Camera);
 				UUCS_FunctionLibrary::PrintUCSLog(LogicInput,Camera,TEXT("Focus camera"));
 				return true;
 			}
@@ -102,9 +110,14 @@ bool UUCS_GameInstanceSubsystem::CallInterfaceMessanger(FUCS_LogicStruct LogicIn
 bool UUCS_GameInstanceSubsystem::ShowWidgetByMessanger(FUCS_LogicStruct LogicInput)
 {
 	const FString* KeyPtr = LogicInput.LogicMap.Find(TEXT("Key"));
+	if (KeyPtr == nullptr || KeyPtr->IsEmpty())
+	{
+		return false;
+	}
+
 	for (AUCS_Widget* Widget : this->Widgets)
 	{
-		if (Widget)
+		if (IsValid(Widget))
 		{
 			if (Widget->ActorHasTag(FName(*KeyPtr)))
 			{
@@ -114,6 +127,46 @@ bool UUCS_GameInstanceSubsystem::ShowWidgetByMessanger(FUCS_LogicStruct LogicInp
 		}
 	}
 	return true;
+}
+
+void UUCS_GameInstanceSubsystem::OnWebSocketJsonReceived_Implementation(const FJsonObjectWrapper& JsonObject)
+{
+	if (!JsonObject.JsonObject.IsValid())
+	{
+		return;
+	}
+
+	FString Command;
+	if (!JsonObject.JsonObject->TryGetStringField(TEXT("command"), Command)
+		|| !Command.Equals(TEXT("camera_info"), ESearchCase::IgnoreCase))
+	{
+		return;
+	}
+
+	const TSharedPtr<FJsonObject>* InfoObject = nullptr;
+	if (!JsonObject.JsonObject->TryGetObjectField(TEXT("Info"), InfoObject)
+		|| InfoObject == nullptr
+		|| !InfoObject->IsValid())
+	{
+		return;
+	}
+
+	FUCS_LogicStruct LogicInput;
+	if (!FJsonObjectConverter::JsonObjectToUStruct(
+		InfoObject->ToSharedRef(),
+		FUCS_LogicStruct::StaticStruct(),
+		&LogicInput))
+	{
+		return;
+	}
+
+	const FString* Key = LogicInput.LogicMap.Find(TEXT("Key"));
+	if (Key == nullptr || Key->IsEmpty())
+	{
+		return;
+	}
+
+	CallMessanger(MoveTemp(LogicInput));
 }
 
 bool UUCS_GameInstanceSubsystem::CallMasterMenuByMessanger(

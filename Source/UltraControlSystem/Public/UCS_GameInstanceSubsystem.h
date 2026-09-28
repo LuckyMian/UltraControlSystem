@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UCS_Interface.h"
+#include "WebSocketJsonReceiver.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "../Support/UCS_LogicStruct.h"
 #include "../Support/UCS_Settings.h"
@@ -19,7 +20,7 @@ class AUCS_PlayerController;
  * 
  */
 UCLASS()
-class ULTRACONTROLSYSTEM_API UUCS_GameInstanceSubsystem : public UGameInstanceSubsystem, public IUCS_Interface
+class ULTRACONTROLSYSTEM_API UUCS_GameInstanceSubsystem : public UGameInstanceSubsystem, public IUCS_Interface, public IWebSocketJsonReceiver
 {
 	GENERATED_BODY()
 	
@@ -49,6 +50,8 @@ public:
 
 	// 重写反初始化函数（可选，用于清理内存、取消绑定事件等）
 	virtual void Deinitialize() override;
+
+	virtual void OnWebSocketJsonReceived_Implementation(const FJsonObjectWrapper& JsonObject) override;
 	
 	UFUNCTION(BlueprintCallable, Category = "UCS")
 	bool CallMessanger(FUCS_LogicStruct LogicInput);

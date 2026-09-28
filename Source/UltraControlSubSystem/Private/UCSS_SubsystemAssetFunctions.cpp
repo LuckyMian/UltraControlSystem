@@ -20,11 +20,16 @@ void FUCSS_SubsystemAssetFunctions::FindAllPluginsDirectory(TSet<FString>& Plugi
 	{
 		if (Plugin->GetBaseDir().Contains("Marketplace") || Plugin->GetLoadedFrom() == EPluginLoadedFrom::Project)
 		{
-			PluginNames.Add(Plugin->GetMountedAssetPath());
+			const FString MountedPath = Plugin->GetMountedAssetPath();
+			if (!MountedPath.IsEmpty())
+			{
+				PluginNames.Add(MountedPath);
+			}
 		}
 	}
 
 	PluginDirectorys.Add("/Game/");
+	PluginDirectorys.Append(PluginNames);
 	UE_LOG(LogUltraControlSubSystem, Log, TEXT("End of scan UCSS_Subsystem Asset"))
 }
 

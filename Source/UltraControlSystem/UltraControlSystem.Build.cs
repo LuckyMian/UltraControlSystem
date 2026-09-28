@@ -25,8 +25,8 @@ public class UltraControlSystem : ModuleRules
 		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"Core",
-				"EnhancedInput", "JsonUtilities", "Engine", "Engine",
+				"Core", "DeveloperSettings",
+				"EnhancedInput", "JsonUtilities", "Engine", "UEWebSocketController",
 			}
 			);
 			

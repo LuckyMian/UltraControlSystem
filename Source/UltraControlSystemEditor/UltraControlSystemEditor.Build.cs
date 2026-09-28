@@ -23,6 +23,10 @@ public class UltraControlSystemEditor : ModuleRules
 			{
 				"Slate",
 				"SlateCore",
+				"LevelEditor",
+				"ToolMenus",
+				"MessageLog",
+				"InputCore",
 			}
 		);
 	}
