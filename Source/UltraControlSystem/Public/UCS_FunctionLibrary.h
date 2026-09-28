@@ -47,5 +47,7 @@ UENUM(BlueprintType)
 enum class ECameraType : uint8
 {
 	Flash     UMETA(DisplayName = "Flash"),
-	Lerp     UMETA(DisplayName = "Lerp"),
+	Lerp      UMETA(DisplayName = "Lerp"),
+	PullBack  UMETA(DisplayName = "Instant Then Pull Back"),
+	PushIn    UMETA(DisplayName = "Instant Then Push In"),
 };

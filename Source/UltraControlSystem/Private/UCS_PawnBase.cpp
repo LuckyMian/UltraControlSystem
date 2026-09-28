@@ -91,7 +91,7 @@ bool AUCS_PawnBase::FocusPoiInterface_Implementation(AActor* UCS_Actor)
 	AUCS_Camera* Camera_Local = Cast<AUCS_Camera>(UCS_Actor);
 	if (Camera_Local)
 	{
-		NewArmLength = Camera_Local->SpringArm->TargetArmLength;
+		const float CameraArmLength = FMath::Max(0.0f, Camera_Local->SpringArm->TargetArmLength);
 		TargetCameraLocation = Camera_Local->GetActorLocation();
 		TargetCameraRotation = Camera_Local->SpringArm->GetRelativeRotation();
 		bLockRotation = true;
@@ -102,6 +102,25 @@ bool AUCS_PawnBase::FocusPoiInterface_Implementation(AActor* UCS_Actor)
 		ClampPitch = Camera_Local->ClampPitch;
 		ClampYaw = Camera_Local->ClampYaw;
 		CameraType = Camera_Local->CameraType;
+
+		switch (CameraType)
+		{
+		case ECameraType::PullBack:
+			// Teleport to the camera first, then pull away from the pivot to the
+			// arm length configured on the target camera.
+			SpringArm->TargetArmLength = 0.0f;
+			NewArmLength = CameraArmLength;
+			break;
+		case ECameraType::PushIn:
+			// Teleport to the camera first, then push in from the configured arm
+			// length until the camera reaches the pivot.
+			SpringArm->TargetArmLength = CameraArmLength;
+			NewArmLength = 0.0f;
+			break;
+		default:
+			NewArmLength = CameraArmLength;
+			break;
+		}
 
 		if (CameraType == ECameraType::Flash)
 		{
@@ -124,12 +143,19 @@ void AUCS_PawnBase::LerpTick(float DeltaTime)
 {
 	if (!FMath::IsNearlyEqual(NewArmLength, SpringArm->TargetArmLength, 1.00f))
 	{
+		const bool bInterpolateArmLength = CameraType == ECameraType::Lerp
+			|| CameraType == ECameraType::PullBack
+			|| CameraType == ECameraType::PushIn;
 		SpringArm->TargetArmLength = FMath::FInterpTo(                                                   
 		SpringArm->TargetArmLength,  // 当前值                                                       
 		NewArmLength,                 // 目标值                                                      
 		DeltaTime,                                                                                 
-		(CameraType == ECameraType::Lerp) ? 1.0f : 0.0f                          // 插值速度
+		bInterpolateArmLength ? 1.0f : 0.0f                          // 插值速度
 	);
+		if (FMath::IsNearlyEqual(NewArmLength, SpringArm->TargetArmLength, 1.00f))
+		{
+			SpringArm->TargetArmLength = NewArmLength;
+		}
 	}
 	if (bLockMove)
 	{

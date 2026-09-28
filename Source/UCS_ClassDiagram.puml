@@ -33,6 +33,8 @@ package "Support" {
     enum ECameraType {
         Flash
         Lerp
+        PullBack
+        PushIn
     }
 
     UUCS_GlobalSettings *-- FGlobalSettings
