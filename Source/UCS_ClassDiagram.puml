@@ -138,6 +138,9 @@ package "UltraControlSystem (Runtime)" {
             + ClampPitch : FVector2D
             + ClampYaw : FVector2D
             + CameraType : ECameraType
+            + bOverrideArmLengthRange : bool
+            + MinArmLength : float
+            + MaxArmLength : float
             + Info : FUCS_LogicStruct
             + SetCameraActive()
             + OnTargetLocationChanged()

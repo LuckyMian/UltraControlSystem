@@ -22,6 +22,7 @@ AUCS_Camera::AUCS_Camera()
 	SpringArm->bUsePawnControlRotation = false;
 	SpringArm->bEnableCameraLag = false;
 	SpringArm->bDoCollisionTest = false;
+	UpdateAutomaticArmLengthRange();
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(SpringArm, USpringArmComponent::SocketName);
 	Camera->SetAutoActivate(false);
@@ -32,6 +33,15 @@ AUCS_Camera::AUCS_Camera()
 	
 	//Info.InfoMap.Add(TEXT("Key"), TEXT(""));
 	
+}
+
+void AUCS_Camera::PostLoad()
+{
+	Super::PostLoad();
+	if (!bOverrideArmLengthRange)
+	{
+		UpdateAutomaticArmLengthRange();
+	}
 }
 
 
@@ -63,6 +73,11 @@ void AUCS_Camera::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedE
 		// 触发你的自定义函数
 		OnTargetLocationChanged();
 	}
+	else if (PropertyName == GET_MEMBER_NAME_CHECKED(AUCS_Camera, bOverrideArmLengthRange)
+		&& !bOverrideArmLengthRange)
+	{
+		UpdateAutomaticArmLengthRange();
+	}
 }
 #endif
 
@@ -72,6 +87,31 @@ void AUCS_Camera::OnTargetLocationChanged()
 	FRotator ArmRotation = FRotator((-TargetLocation).Rotation().Pitch, (-TargetLocation).Rotation().Yaw, (-TargetLocation).Rotation().Roll);
 	SpringArm->SetRelativeRotation(ArmRotation);
 	SpringArm->TargetArmLength = TargetLocation.Length();
+	if (!bOverrideArmLengthRange)
+	{
+		UpdateAutomaticArmLengthRange();
+	}
+}
+
+void AUCS_Camera::UpdateAutomaticArmLengthRange()
+{
+	const float CurrentArmLength = SpringArm ? FMath::Max(0.0f, SpringArm->TargetArmLength) : 0.0f;
+	MinArmLength = CurrentArmLength * 0.5f;
+	MaxArmLength = CurrentArmLength * 2.0f;
+}
+
+float AUCS_Camera::GetTransitionMinArmLength() const
+{
+	const float CurrentArmLength = SpringArm ? FMath::Max(0.0f, SpringArm->TargetArmLength) : 0.0f;
+	const float RequestedMin = bOverrideArmLengthRange ? MinArmLength : CurrentArmLength * 0.5f;
+	return FMath::Clamp(RequestedMin, 0.0f, CurrentArmLength);
+}
+
+float AUCS_Camera::GetTransitionMaxArmLength() const
+{
+	const float CurrentArmLength = SpringArm ? FMath::Max(0.0f, SpringArm->TargetArmLength) : 0.0f;
+	const float RequestedMax = bOverrideArmLengthRange ? MaxArmLength : CurrentArmLength * 2.0f;
+	return FMath::Max(RequestedMax, CurrentArmLength);
 }
 
 
@@ -79,6 +119,10 @@ void AUCS_Camera::OnTargetLocationChanged()
 void AUCS_Camera::BeginPlay()
 {
 	Super::BeginPlay();
+	if (!bOverrideArmLengthRange)
+	{
+		UpdateAutomaticArmLengthRange();
+	}
 	
 	//存TAG
 	FString* Key = Info.LogicMap.Find(TEXT("Key"));

@@ -92,6 +92,8 @@ bool AUCS_PawnBase::FocusPoiInterface_Implementation(AActor* UCS_Actor)
 	if (Camera_Local)
 	{
 		const float CameraArmLength = FMath::Max(0.0f, Camera_Local->SpringArm->TargetArmLength);
+		const float MinArmLength = Camera_Local->GetTransitionMinArmLength();
+		const float MaxArmLength = Camera_Local->GetTransitionMaxArmLength();
 		TargetCameraLocation = Camera_Local->GetActorLocation();
 		TargetCameraRotation = Camera_Local->SpringArm->GetRelativeRotation();
 		bLockRotation = true;
@@ -106,23 +108,26 @@ bool AUCS_PawnBase::FocusPoiInterface_Implementation(AActor* UCS_Actor)
 		switch (CameraType)
 		{
 		case ECameraType::PullBack:
-			// Teleport to the camera first, then pull away from the pivot to the
-			// arm length configured on the target camera.
-			SpringArm->TargetArmLength = 0.0f;
-			NewArmLength = CameraArmLength;
+			// Teleport to the camera first, then move from its configured arm
+			// length to the transition minimum.
+			SpringArm->TargetArmLength = CameraArmLength;
+			NewArmLength = MinArmLength;
 			break;
 		case ECameraType::PushIn:
-			// Teleport to the camera first, then push in from the configured arm
-			// length until the camera reaches the pivot.
-			SpringArm->TargetArmLength = CameraArmLength;
-			NewArmLength = 0.0f;
+			// Teleport to the camera first, then move from the transition maximum
+			// to the arm length configured on the target camera.
+			SpringArm->TargetArmLength = MaxArmLength;
+			NewArmLength = CameraArmLength;
 			break;
 		default:
 			NewArmLength = CameraArmLength;
 			break;
 		}
 
-		if (CameraType == ECameraType::Flash)
+		const bool bUsesBlackScreen = CameraType == ECameraType::Flash
+			|| CameraType == ECameraType::PullBack
+			|| CameraType == ECameraType::PushIn;
+		if (bUsesBlackScreen)
 		{
 			AUCS_PlayerController* MyPC = Cast<AUCS_PlayerController>(PC);
 			if (MyPC)

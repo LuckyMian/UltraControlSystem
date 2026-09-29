@@ -21,6 +21,7 @@ public:
 	
 	// Sets default values for this actor's properties
 	AUCS_Camera();
+	virtual void PostLoad() override;
 	
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<USceneComponent> SceneRoot;
@@ -61,6 +62,21 @@ public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UCS|MotionControl")
 	ECameraType CameraType = ECameraType::Lerp;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UCS|MotionControl|ArmTransition",
+		meta = (DisplayName = "Manually Override Min/Max Arm Length"))
+	bool bOverrideArmLengthRange = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UCS|MotionControl|ArmTransition",
+		meta = (EditCondition = "bOverrideArmLengthRange", ClampMin = "0.0", UIMin = "0.0"))
+	float MinArmLength = 150.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UCS|MotionControl|ArmTransition",
+		meta = (EditCondition = "bOverrideArmLengthRange", ClampMin = "0.0", UIMin = "0.0"))
+	float MaxArmLength = 600.0f;
+
+	float GetTransitionMinArmLength() const;
+	float GetTransitionMaxArmLength() const;
 	
 #if WITH_EDITOR
 	// 重写编辑器属性修改事件
@@ -68,6 +84,7 @@ public:
 #endif
 	
 	void OnTargetLocationChanged();
+	void UpdateAutomaticArmLengthRange();
 	
 protected:
 	// Called when the game starts or when spawned

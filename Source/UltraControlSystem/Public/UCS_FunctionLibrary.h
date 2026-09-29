@@ -48,6 +48,6 @@ enum class ECameraType : uint8
 {
 	Flash     UMETA(DisplayName = "Flash"),
 	Lerp      UMETA(DisplayName = "Lerp"),
-	PullBack  UMETA(DisplayName = "Instant Then Pull Back"),
-	PushIn    UMETA(DisplayName = "Instant Then Push In"),
+	PullBack  UMETA(DisplayName = "Flash: Arm Length To Minimum"),
+	PushIn    UMETA(DisplayName = "Flash: Maximum To Arm Length"),
 };
