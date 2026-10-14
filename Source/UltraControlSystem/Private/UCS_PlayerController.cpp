@@ -74,6 +74,13 @@ void AUCS_PlayerController::BeginPlay()
 		{
 			UCSWidget->AddToViewport(1001);
 		}
+
+		if (UCSWidget && GameInstance)
+		{
+			// The menu page is created after the controller may already have missed a
+			// logic message, so let the queue replay the active state into it.
+			GameInstance->RegisterUCSReceiver(UCSWidget);
+		}
 	}
 }
 

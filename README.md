@@ -77,8 +77,25 @@ CallMessanger(Logic)
 2. 查找场景中实现 `IUCS_Interface` 的 Actor，调用其 `LogicInterface`。
 3. 在已注册的 `AUCS_Widget` 中查找同名 Tag，并调用 `ShowSelf`。
 4. 将消息转发给 PlayerController 创建的 `UUCS_MenuBase`，由菜单的 `ShowPage` 播放页面动画。
+5. 把该状态按 `Key` 存入消息队列，供生成时间晚于本次调用的接收者补发。
 
 因此，同一个 Key 可以同时驱动相机、场景 Widget、Actor 逻辑和菜单页面；不需要参与某一环节时，可以只配置对应对象。
+
+### 晚到接收者与消息队列
+
+![UCS 消息队列流程](Docs/UCS_MessageQueue_Flow.png)
+
+> 流程图源文件：[Docs/UCS_MessageQueue_Flow.drawio](Docs/UCS_MessageQueue_Flow.drawio)，可直接用 draw.io / diagrams.net 打开编辑。
+
+上面的 1-4 步只影响"调用发生时已经存在"的对象。为了让生成时间晚于消息发送的接收者也能拿到状态，子系统会保留每个 `LogicMap["Key"]` 的最新消息，并在接收者注册后的下一帧补发：
+
+1. 每条未被 `Retrigger` 抑制且带非空 `Key` 的消息按 `Key` 入队，同 Key 覆盖；队列最多保留 `MaxPendingMessages` 个 Key，超出时淘汰最旧的。
+2. `AUCS_Camera`、`AUCS_Widget`、`AUCS_PawnBase` 在 `BeginPlay` 自动注册；主菜单 `UUCS_MenuBase` 在 `AUCS_PlayerController` 创建并加入视口后注册。自定义 Actor/Widget 可调用 `RegisterUCSReceiver` 手动加入。
+3. 补发按 Actor Tag 命中 `Key` 的规则匹配（与实时路径一致），并走相同通道：相机聚焦、`ShowSelf`、`LogicInterface`。主菜单是单例，只补发全局最新一条消息。
+4. 相机聚焦在 Pawn 尚未生成时按 `MessageQueueRetrySeconds`（默认 2 秒）逐帧重试，超时后丢弃该条补发并输出警告日志。
+5. 队列不设过期时间，会跨关卡保留；需要重置时调用 `ClearPendingMessages`。
+
+开关位于 **Project Settings > Plugins > UCS > Message Queue**：`bEnableMessageQueue` 默认为开启；关闭后不再入队，行为与旧版本完全一致。
 
 ## 相机与场景 Widget
 
@@ -87,6 +104,9 @@ CallMessanger(Logic)
 - 将 `Info.LogicMap["Key"]` 设置为唯一标识；BeginPlay 时会把该 Key 加入 Actor Tags。
 - 在 Details 面板中编辑 `TargetLocation`，插件会自动换算 Spring Arm 的旋转和长度。
 - `CameraType = Lerp` 使用插值过渡；`CameraType = Flash` 使用黑屏淡入淡出过渡。
+- `MinToArmLength` 使用黑屏切换，从 `MinArmLength` 插值到镜头配置的摇臂长度，不改变 FOV。
+- `HitchcockPullBack` 从最小摇臂长度拉远到配置长度，FOV 从较大值收缩到目标值；`HitchcockPushIn` 从最大摇臂长度拉近到配置长度，FOV 从较小值扩大到目标值。两者不会播放黑屏，确保摇臂位移与 FOV 变化同步可见，并强制 Roll 为零以保持水平线稳定。
+- `TransitionSpeedMultiplier` 控制摇臂长度、位置和旋转的插值速度；`1.0` 为原速度，数值越大过渡越快。
 - `SetCameraActive` 和 `TEST` 提供编辑器/调试辅助操作。
 
 ### `AUCS_Widget`
@@ -129,6 +149,9 @@ Source/
   UltraControlSystem/        # Runtime 核心模块
   LoadingScreen/              # Runtime 加载界面模块
   UltraControlSystemEditor/   # Editor 配置与 Details 定制
+Docs/
+  UCS_MessageQueue_Flow.drawio # 消息队列流程图源文件
+  UCS_MessageQueue_Flow.png    # 供 README 引用的导出图
 Content/
   GameMode/Input/             # 内置 Enhanced Input 资产
   Menu/                       # 主菜单 Widget 示例

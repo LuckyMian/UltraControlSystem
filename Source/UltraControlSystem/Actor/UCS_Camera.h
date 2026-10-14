@@ -63,6 +63,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UCS|MotionControl")
 	ECameraType CameraType = ECameraType::Lerp;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UCS|MotionControl",
+		meta = (ClampMin = "0.01", UIMin = "0.01", DisplayName = "Transition Speed Multiplier"))
+	float TransitionSpeedMultiplier = 1.0f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UCS|MotionControl|ArmTransition",
 		meta = (DisplayName = "Manually Override Min/Max Arm Length"))
 	bool bOverrideArmLengthRange = false;

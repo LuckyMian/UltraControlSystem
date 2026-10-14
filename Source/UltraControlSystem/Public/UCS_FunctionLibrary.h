@@ -50,4 +50,7 @@ enum class ECameraType : uint8
 	Lerp      UMETA(DisplayName = "Lerp"),
 	PullBack  UMETA(DisplayName = "Flash: Arm Length To Minimum"),
 	PushIn    UMETA(DisplayName = "Flash: Maximum To Arm Length"),
+	HitchcockPullBack UMETA(DisplayName = "Hitchcock: Minimum To Arm Length"),
+	HitchcockPushIn   UMETA(DisplayName = "Hitchcock: Maximum To Arm Length"),
+	MinToArmLength    UMETA(DisplayName = "Flash: Minimum To Arm Length"),
 };

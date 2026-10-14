@@ -73,3 +73,33 @@ FString UUCS_ProjectSettings::GetConfiguredMenuWidgetPath()
 	}
 	return GetDefault<UUCS_ProjectSettings>()->MenuWidgetClass.ToString();
 }
+
+bool UUCS_ProjectSettings::IsMessageQueueEnabled()
+{
+	bool Value = GetDefault<UUCS_ProjectSettings>()->bEnableMessageQueue;
+	if (GConfig)
+	{
+		GConfig->GetBool(NewSection, TEXT("bEnableMessageQueue"), Value, GGameIni);
+	}
+	return Value;
+}
+
+float UUCS_ProjectSettings::GetMessageQueueRetrySeconds()
+{
+	float Value = GetDefault<UUCS_ProjectSettings>()->MessageQueueRetrySeconds;
+	if (GConfig)
+	{
+		GConfig->GetFloat(NewSection, TEXT("MessageQueueRetrySeconds"), Value, GGameIni);
+	}
+	return FMath::Max(Value, 0.0f);
+}
+
+int32 UUCS_ProjectSettings::GetMaxPendingMessages()
+{
+	int32 Value = GetDefault<UUCS_ProjectSettings>()->MaxPendingMessages;
+	if (GConfig)
+	{
+		GConfig->GetInt(NewSection, TEXT("MaxPendingMessages"), Value, GGameIni);
+	}
+	return FMath::Max(Value, 1);
+}

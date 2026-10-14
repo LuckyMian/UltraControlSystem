@@ -18,7 +18,13 @@ void AUCS_ActorBase::BeginPlay()
 {
 	GameInstance = UUCS_FunctionLibrary::Get_UCS_GameInstanceSubsystem(this);
 	Super::BeginPlay();
-	
+
+	if (GameInstance)
+	{
+		// Opt into late catch-up: the queue delivers the active state once this actor's
+		// Tags are in place, on the next frame.
+		GameInstance->RegisterUCSReceiver(this);
+	}
 }
 
 // Called every frame

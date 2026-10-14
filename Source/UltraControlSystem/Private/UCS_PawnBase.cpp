@@ -22,6 +22,9 @@ AUCS_PawnBase::AUCS_PawnBase()
 	SpringArm->TargetArmLength = 300.f;
 	SpringArm->bUsePawnControlRotation = true;
 	SpringArm->bEnableCameraLag = true;
+	SpringArm->bDrawDebugLagMarkers = false;
+	SpringArm->bDoCollisionTest = false;
+	SpringArm->bInheritRoll = false;
 
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(SpringArm, USpringArmComponent::SocketName);
@@ -95,7 +98,11 @@ bool AUCS_PawnBase::FocusPoiInterface_Implementation(AActor* UCS_Actor)
 		const float MinArmLength = Camera_Local->GetTransitionMinArmLength();
 		const float MaxArmLength = Camera_Local->GetTransitionMaxArmLength();
 		TargetCameraLocation = Camera_Local->GetActorLocation();
-		TargetCameraRotation = Camera_Local->SpringArm->GetRelativeRotation();
+		// The pawn spring arm follows the controller's world rotation. Using the
+		// target arm's relative rotation drops the camera actor's rotation and
+		// makes web-created cameras jump to a level view.
+		TargetCameraRotation = Camera_Local->SpringArm->GetComponentRotation();
+		TargetCameraRotation.Roll = 0.0f;
 		bLockRotation = true;
 		bLockMove = true;
 		bCanMove = Camera_Local->bCanMove;
@@ -104,6 +111,8 @@ bool AUCS_PawnBase::FocusPoiInterface_Implementation(AActor* UCS_Actor)
 		ClampPitch = Camera_Local->ClampPitch;
 		ClampYaw = Camera_Local->ClampYaw;
 		CameraType = Camera_Local->CameraType;
+		TransitionSpeedMultiplier = FMath::Max(Camera_Local->TransitionSpeedMultiplier, 0.01f);
+		HitchcockReferenceFieldOfView = FMath::Clamp(Camera_Local->Camera->FieldOfView, 5.0f, 170.0f);
 
 		switch (CameraType)
 		{
@@ -113,7 +122,20 @@ bool AUCS_PawnBase::FocusPoiInterface_Implementation(AActor* UCS_Actor)
 			SpringArm->TargetArmLength = CameraArmLength;
 			NewArmLength = MinArmLength;
 			break;
+		case ECameraType::MinToArmLength:
+			// Teleport to the transition minimum, then move out to the arm
+			// length configured on the target camera.
+			SpringArm->TargetArmLength = MinArmLength;
+			NewArmLength = CameraArmLength;
+			break;
+		case ECameraType::HitchcockPullBack:
+			// Start close with a wide FOV, then pull back to the camera's
+			// configured arm length and target FOV.
+			SpringArm->TargetArmLength = MinArmLength;
+			NewArmLength = CameraArmLength;
+			break;
 		case ECameraType::PushIn:
+		case ECameraType::HitchcockPushIn:
 			// Teleport to the camera first, then move from the transition maximum
 			// to the arm length configured on the target camera.
 			SpringArm->TargetArmLength = MaxArmLength;
@@ -124,9 +146,22 @@ bool AUCS_PawnBase::FocusPoiInterface_Implementation(AActor* UCS_Actor)
 			break;
 		}
 
+		const bool bUsesHitchcockZoom = CameraType == ECameraType::HitchcockPullBack
+			|| CameraType == ECameraType::HitchcockPushIn;
+		if (bUsesHitchcockZoom)
+		{
+			HitchcockReferenceArmLength = FMath::Max(NewArmLength, 1.0f);
+			UpdateHitchcockFieldOfView();
+		}
+		else
+		{
+			Camera->SetFieldOfView(HitchcockReferenceFieldOfView);
+		}
+
 		const bool bUsesBlackScreen = CameraType == ECameraType::Flash
 			|| CameraType == ECameraType::PullBack
-			|| CameraType == ECameraType::PushIn;
+			|| CameraType == ECameraType::PushIn
+			|| CameraType == ECameraType::MinToArmLength;
 		if (bUsesBlackScreen)
 		{
 			AUCS_PlayerController* MyPC = Cast<AUCS_PlayerController>(PC);
@@ -140,28 +175,62 @@ bool AUCS_PawnBase::FocusPoiInterface_Implementation(AActor* UCS_Actor)
 	}
 	return false;
 }
+void AUCS_PawnBase::UpdateHitchcockFieldOfView()
+{
+	if (!Camera || !SpringArm)
+	{
+		return;
+	}
 
-
-
+	const float CurrentArmLength = FMath::Max(SpringArm->TargetArmLength, 1.0f);
+	const float ReferenceArmLength = FMath::Max(HitchcockReferenceArmLength, 1.0f);
+	const float ReferenceFov = FMath::Clamp(HitchcockReferenceFieldOfView, 5.0f, 170.0f);
+	const float ReferenceHalfFovRadians = FMath::DegreesToRadians(ReferenceFov * 0.5f);
+	const float ScaledHalfFovTangent = ReferenceArmLength / CurrentArmLength
+		* FMath::Tan(ReferenceHalfFovRadians);
+	const float HitchcockFov = FMath::RadiansToDegrees(2.0f * FMath::Atan(ScaledHalfFovTangent));
+	Camera->SetFieldOfView(FMath::Clamp(HitchcockFov, 5.0f, 170.0f));
+}
 
 void AUCS_PawnBase::LerpTick(float DeltaTime)
 {
+	const float TransitionSpeed = FMath::Max(TransitionSpeedMultiplier, 0.01f);
+	if (PC)
+	{
+		FRotator HorizontalControlRotation = PC->GetControlRotation();
+		if (!FMath::IsNearlyZero(HorizontalControlRotation.Roll))
+		{
+			HorizontalControlRotation.Roll = 0.0f;
+			PC->SetControlRotation(HorizontalControlRotation);
+		}
+	}
+
 	if (!FMath::IsNearlyEqual(NewArmLength, SpringArm->TargetArmLength, 1.00f))
 	{
 		const bool bInterpolateArmLength = CameraType == ECameraType::Lerp
 			|| CameraType == ECameraType::PullBack
-			|| CameraType == ECameraType::PushIn;
+			|| CameraType == ECameraType::PushIn
+			|| CameraType == ECameraType::MinToArmLength
+			|| CameraType == ECameraType::HitchcockPullBack
+			|| CameraType == ECameraType::HitchcockPushIn;
 		SpringArm->TargetArmLength = FMath::FInterpTo(                                                   
 		SpringArm->TargetArmLength,  // 当前值                                                       
 		NewArmLength,                 // 目标值                                                      
 		DeltaTime,                                                                                 
-		bInterpolateArmLength ? 1.0f : 0.0f                          // 插值速度
+		bInterpolateArmLength ? TransitionSpeed : 0.0f              // 插值速度
 	);
 		if (FMath::IsNearlyEqual(NewArmLength, SpringArm->TargetArmLength, 1.00f))
 		{
 			SpringArm->TargetArmLength = NewArmLength;
 		}
 	}
+
+	if (CameraType == ECameraType::HitchcockPullBack
+		|| CameraType == ECameraType::HitchcockPushIn)
+	{
+		UpdateHitchcockFieldOfView();
+	}
+
 	if (bLockMove)
 	{
 		if (!this->GetActorLocation().Equals(TargetCameraLocation, 1.00f))
@@ -170,7 +239,7 @@ void AUCS_PawnBase::LerpTick(float DeltaTime)
 				this->GetActorLocation(),                                                          
 				TargetCameraLocation,                                                                            
 				DeltaTime,                                                                                 
-				(CameraType == ECameraType::Lerp) ? 1.0f : 0.0f
+				(CameraType == ECameraType::Lerp) ? TransitionSpeed : 0.0f
 			);
 			SpringArm->bEnableCameraLag = false;
 			this->SetActorLocation(Location);
@@ -181,7 +250,7 @@ void AUCS_PawnBase::LerpTick(float DeltaTime)
 			SpringArm->bEnableCameraLag = true;
 		}
 	}
-	if (bLockRotation)
+	if (bLockRotation && PC)
 	{
 		if (!PC->GetControlRotation().Equals(TargetCameraRotation, 1.00f))
 		{
@@ -189,8 +258,9 @@ void AUCS_PawnBase::LerpTick(float DeltaTime)
 				PC->GetControlRotation(),                                                          
 				TargetCameraRotation,                                                                            
 				DeltaTime,                                                                                 
-				(CameraType == ECameraType::Lerp) ? 1.0f : 0.0f
+				(CameraType == ECameraType::Lerp) ? TransitionSpeed : 0.0f
 			);
+			Rotation.Roll = 0.0f;
 			PC->SetControlRotation(Rotation);
 		}
 		else
@@ -204,16 +274,30 @@ void AUCS_PawnBase::LerpTick(float DeltaTime)
 // Called when the game starts or when spawned
 void AUCS_PawnBase::BeginPlay()
 {
-	
+	Super::BeginPlay();
+
+	// Blueprint component defaults may retain this development-only SpringArm
+	// visualization or collision settings. Keep the runtime camera on the exact
+	// configured arm length so push/pull and Hitchcock transitions remain visible.
+	SpringArm->bDrawDebugLagMarkers = false;
+	SpringArm->bDoCollisionTest = false;
+	SpringArm->bInheritRoll = false;
+
 	PC = Cast<APlayerController>(GetController());
 	//存全局子系统变量
 	GameInstance = UUCS_FunctionLibrary::Get_UCS_GameInstanceSubsystem(this);
-	GameInstance->UCS_Pawn = this;
+	if (GameInstance)
+	{
+		GameInstance->UCS_Pawn = this;
+		GameInstance->RegisterUCSReceiver(this);
+	}
 	//存全局设置变量
 	GlobalSettings = UUCS_FunctionLibrary::Get_UCS_GlobalSettings(this);
-	
-	PC->SetShowMouseCursor(true); //显示鼠标
-	Super::BeginPlay();
+
+	if (PC)
+	{
+		PC->SetShowMouseCursor(true); //显示鼠标
+	}
 	
 }
 

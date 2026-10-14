@@ -79,6 +79,17 @@ protected:
 	
 	UPROPERTY()
 	ECameraType CameraType = ECameraType::Lerp;
+
+	UPROPERTY()
+	float TransitionSpeedMultiplier = 1.0f;
+
+	UPROPERTY()
+	float HitchcockReferenceArmLength = 300.0f;
+
+	UPROPERTY()
+	float HitchcockReferenceFieldOfView = 90.0f;
+
+	void UpdateHitchcockFieldOfView();
 	
 	
 public:
